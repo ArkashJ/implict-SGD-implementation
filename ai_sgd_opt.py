@@ -38,7 +38,7 @@ def sgd(data_v, lr=1, npass=1, lambda_v=0):
         def score(ksi):
             return (
                 y_i
-                - glm_model["h"](l_pred + x_i_norm * ksi)
+                - glm_model["h"](l_pred + xi_norm * ksi)
                 + lambda_v * np.sqrt(np.sum((theta_old + ksi) ** 2))
             )
 
@@ -218,3 +218,4 @@ def test_ai_sgd():
 
 
 theta_sgd = test_ai_sgd()
+print(theta_sgd)
