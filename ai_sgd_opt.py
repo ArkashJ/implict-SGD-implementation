@@ -202,13 +202,11 @@ ncovs = 10
 X_list = generate_X_A(n=nsamples, p=ncovs, lambdas=np.linspace(1, 1, ncovs))
 lambda0 = np.min(scipy.linalg.eigh(X_list["A"], eigvals_only=True))
 d = generate_data(X_list, theta=np.ones((ncovs, 1)), glm_model="gaussian")
+subset_idx = np.linspace(10, nsamples, num=50, dtype=int)
 
 
 def lr_implicit_avg(n):
     return (0 + lambda0 * n) ** (-0.8)
-
-
-subset_idx = np.linspace(10, nsamples, num=50, dtype=int)
 
 
 def test_ai_sgd():
@@ -217,5 +215,24 @@ def test_ai_sgd():
     return theta_sgd
 
 
-theta_sgd = test_ai_sgd()
-print(theta_sgd)
+def mse(theta_t):
+    def calculate_mse(col):
+        U = col - d["theta"]
+        return np.log(np.sum(U.T @ X_list["A"] @ U))
+
+    return np.apply_along_axis(calculate_mse, 0, theta_t)
+
+
+def test_mse():
+    theta_sgd = test_ai_sgd()
+    mse_vals = mse(theta_sgd)
+    plt.plot(mse_vals, color="red")
+    plt.show()
+
+
+#
+# def main():
+#     test_mse()
+#
+#
+# main()

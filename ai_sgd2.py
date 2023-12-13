@@ -1,62 +1,62 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import root
 
+from ai_sgd_opt import *
 
-def ai_sgd(data, initial_theta, lr, lambda_reg, glm_model, n_iters, batch_size=1):
+
+def run(model, pars, n=1e4, p=1e1, plot_save=False, **kwargs):
     """
-    Perform Averaged Implicit Stochastic Gradient Descent (AI-SGD).
+    Run AI-SGD for a set of parameters and any additionally selected methods,
+    and plot error over training data size. The set of parameters affect only
+    AI-SGD's learning rate.
 
     Args:
-        data (dict): Dictionary containing 'X' and 'Y' data.
-        initial_theta (numpy.ndarray): Initial parameters for the model.
-        lr (function): Learning rate function.
-        lambda_reg (float): Regularization parameter.
-        glm_model (dict): Dictionary containing 'h' function for the model.
-        n_iters (int): Number of iterations to run.
-        batch_size (int): Size of each batch for stochastic updates.
+      model: the specified GLM
+      pars: A npars x 2 array, where each row is a set of parameters to run
+            AI-SGD on
+      n: number of observations
+      p: number of parameters
+      add_methods: list of additional methods to benchmark. Options are
+                   documented in sgd()
+      plot_save: boolean specifying whether to save plot to disk or output it
 
     Returns:
-        numpy.ndarray: Averaged parameters after AI-SGD.
+      A plot object, plotting error over training data size for each
+      optimization routine.
     """
+    np.random.seed(42)
+    X_list = generate_X_A(n, p)
+    d = generate_data(
+        X_list, glm_model=get_glm_model(model), theta=2 * np.exp(-np.arange(1, p + 1))
+    )
 
-    def implicit_update(theta_old, xi, yi, ai):
-        """Function to perform the implicit update."""
+    # Construct functions for learning rate
+    def lr(n, par):
+        D, alpha = par
+        return D * n**alpha
 
-        def objective(ksi):
-            adjusted_theta = theta_old + ksi
-            score = yi - glm_model["h"](np.dot(xi, adjusted_theta))
-            regularization = lambda_reg * np.sqrt(np.sum(adjusted_theta**2))
-            return ksi - ai * (score + regularization)
+    # Optimize!
+    theta = []
+    for i, par in enumerate(pars):
+        print("Running AI-SGD..")
+        theta_sgd = sgd(d, lr=lambda n: lr(n, par), **kwargs)
+        theta.append((theta_sgd, f"AI-SGD ({par[0]}, {par[1]})"))
 
-        ksi_solution = root(objective, x0=np.zeros_like(theta_old)).x
-        return theta_old + ksi_solution
+    def lr_implicit(n):
+        alpha = 1 / 0.01
+        return alpha / (alpha + n)
 
-    n, p = data["X"].shape
-    theta = np.copy(initial_theta)
-    avg_theta = np.copy(initial_theta)
-
-    for i in range(1, n_iters + 1):
-        idx = np.random.choice(n, batch_size, replace=False)
-        xi, yi = data["X"][idx], data["Y"][idx]
-        ai = lr(i)
-
-        theta = implicit_update(theta, xi, yi, ai)
-        avg_theta = (avg_theta * (i - 1) + theta) / i  # Averaging step
-
-    return avg_theta
+    theta_sgd = sgd(d, lr=lr_implicit, **kwargs)
+    theta.append((theta_sgd, method))
+    print("Running implicit SGD..")
+    return plot_risk(
+        d, [t[0] for t in theta]
+    )  # This should be modified to pass correct format
 
 
 # Example usage
-n, p = 100, 10  # Example dimensions for data
-data = {"X": np.random.randn(n, p), "Y": np.random.randn(n)}
-initial_theta = np.zeros(p)
-lr = lambda n: 0.01 / (1 + 0.01 * n)  # Example learning rate function
-lambda_reg = 0.1  # Regularization parameter
-glm_model = {"h": lambda x: x}  # Example model (linear in this case)
-n_iters = 1000
-
-avg_theta = ai_sgd(data, initial_theta, lr, lambda_reg, glm_model, n_iters)
-
-print(avg_theta)
-
-
+model = "gaussian"
+print("Running AI-SGD..")
+pars = np.array([[0.1, 0.5], [0.2, 0.4]])
+run(model, pars, n=10000, p=10)
